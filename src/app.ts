@@ -1,3 +1,42 @@
+// Project State Management Class: Takes care of the state of the application, set up listeners in the different parts of the app that might be interested.
+class ProjectState {
+    private listeners: any[] = []; // Set up a subscription pattern that manages a list of listeners(functions) inside of the project state. Functions called whenever something changes
+    private projects: any[] = [];
+    private static instance: ProjectState;
+
+    private constructor() { // Creating a private constructor here guarantees that this is a singleton class.
+
+    }
+
+    static getInstance() { // Creating a new instance of ProjectState
+        if (this.instance) {
+            return this.instance;
+        }
+        this.instance = new ProjectState();
+        return this.instance;
+    }
+
+    addListener(listenerFn: Function) {
+        this.listeners.push(listenerFn);
+    }
+
+    addProject(title: string, description: string, numberOfPeople: number) {
+        const newProject = {
+            id: Math.random().toString(),
+            title: title,
+            description: description,
+            people: numberOfPeople
+        };
+        this.projects.push(newProject);
+        for (const listenerFn of this.listeners) {
+            listenerFn(this.projects.slice()); // Calling slice() makes sure we only return a copy of the array and not the original array. Because of arrays are passed by reference in JS
+        }
+    }
+}
+
+// Creating a Global Instance of Projects State. By doing this, we can now communicate with the class from anywhere in the app, even though the class is private.
+const projectState = ProjectState.getInstance(); // With this we're guaranteed we're only working with the exact same object and we always have only one object of that type in the entire application.
+
 // Validation
 interface Validatable {
     value: string | number;
@@ -46,17 +85,33 @@ class ProjectList {
     templateElement: HTMLTemplateElement;
     hostElement: HTMLDivElement;
     element: HTMLElement;
+    assignedProjects: any[];
 
     constructor(private type: 'active' | 'finished') {
         this.templateElement = document.getElementById('project-list')! as HTMLTemplateElement;
         this.hostElement = document.getElementById('app')! as HTMLDivElement;
+        this.assignedProjects = [];
 
         const importedNode = document.importNode(this.templateElement.content, true); // With this, we import the template element into the DOM. The second argument defines whether we should import this with a deep clone or not.
         this.element = importedNode.firstElementChild as HTMLElement; // Getting access to the form element.
         this.element.id = `${this.type}-projects`;
 
+        projectState.addListener((projects: any[]) => { // Reach out to projectState and call addListener on it to register a listener function. listeners in the end is just a list of functions which we'll eventually call when something changes.
+            this.assignedProjects = projects; // Once something changes, override the assignedProjects with the new projects because something changed in the state.
+            this.renderProjects();
+        });
+
         this.attach();
         this.renderContent();
+    }
+
+    private renderProjects() {
+        const listElement = document.getElementById(`${this.type}-projects-list`)! as HTMLUListElement;
+        for (const projectItem of this.assignedProjects) {
+            const listItem = document.createElement('li');
+            listItem.textContent = projectItem.title;
+            listElement.appendChild(listItem);
+        }
     }
 
     private renderContent() {
@@ -141,7 +196,7 @@ class ProjectInput {
 
         if (Array.isArray(userInput)) {
             const [title, description, people] = userInput;
-            console.log(title, description, people);
+            projectState.addProject(title, description, people);
             this.clearInputs();
         }
     }
