@@ -101,7 +101,15 @@ class ProjectList {
         this.element.id = `${this.type}-projects`;
 
         projectState.addListener((projects: Project[]) => { // Reach out to projectState and call addListener on it to register a listener function. listeners in the end is just a list of functions which we'll eventually call when something changes.
-            this.assignedProjects = projects; // Once something changes, override the assignedProjects with the new projects because something changed in the state.
+            // Before we store the projects and render them we wanna filter them, to know which ones are active and finished respectively
+            const relevantProjects = projects.filter(project => {
+                if (this.type === 'active') {
+                    return project.status === ProjectStatus.Active;
+                }
+                return project.status === ProjectStatus.Finished;
+            });
+
+            this.assignedProjects = relevantProjects; // Once something changes, override the assignedProjects with the new projects because something changed in the state.
             this.renderProjects();
         });
 
@@ -111,6 +119,7 @@ class ProjectList {
 
     private renderProjects() {
         const listElement = document.getElementById(`${this.type}-projects-list`)! as HTMLUListElement;
+        listElement.innerHTML = ''; // We get the rid of all list items and then re-render. This prevents re-rendering of the old items in the list which led to some item being rendered twice
         for (const projectItem of this.assignedProjects) {
             const listItem = document.createElement('li');
             listItem.textContent = projectItem.title;
