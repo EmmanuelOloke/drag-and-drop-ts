@@ -1,7 +1,16 @@
+// Project Type
+enum ProjectStatus { Active, Finished } // Using enum here becuase we have exactly 2 options and we only need identifiers instead of strings
+
+class Project { // Using a class to creat the Project type here instead of an interface or a custom type because we want to be able to instantiate it.
+    constructor(public id: string, public title: string, public description: string, public people: number, public status: ProjectStatus) { }
+}
+
 // Project State Management Class: Takes care of the state of the application, set up listeners in the different parts of the app that might be interested.
+
+type Listener = (items: Project[]) => void // Using a type here because we want to encode a function type with one word. Listener is just a bunch of functions and we execute that when anything changes. Since it's a function we have to declare a return type which is void.
 class ProjectState {
-    private listeners: any[] = []; // Set up a subscription pattern that manages a list of listeners(functions) inside of the project state. Functions called whenever something changes
-    private projects: any[] = [];
+    private listeners: Listener[] = []; // Set up a subscription pattern that manages a list of listeners(functions) inside of the project state. Functions called whenever something changes
+    private projects: Project[] = [];
     private static instance: ProjectState;
 
     private constructor() { // Creating a private constructor here guarantees that this is a singleton class.
@@ -16,17 +25,12 @@ class ProjectState {
         return this.instance;
     }
 
-    addListener(listenerFn: Function) {
+    addListener(listenerFn: Listener) {
         this.listeners.push(listenerFn);
     }
 
     addProject(title: string, description: string, numberOfPeople: number) {
-        const newProject = {
-            id: Math.random().toString(),
-            title: title,
-            description: description,
-            people: numberOfPeople
-        };
+        const newProject = new Project(Math.random().toString(), title, description, numberOfPeople, ProjectStatus.Active)
         this.projects.push(newProject);
         for (const listenerFn of this.listeners) {
             listenerFn(this.projects.slice()); // Calling slice() makes sure we only return a copy of the array and not the original array. Because of arrays are passed by reference in JS
@@ -85,7 +89,7 @@ class ProjectList {
     templateElement: HTMLTemplateElement;
     hostElement: HTMLDivElement;
     element: HTMLElement;
-    assignedProjects: any[];
+    assignedProjects: Project[];
 
     constructor(private type: 'active' | 'finished') {
         this.templateElement = document.getElementById('project-list')! as HTMLTemplateElement;
@@ -96,7 +100,7 @@ class ProjectList {
         this.element = importedNode.firstElementChild as HTMLElement; // Getting access to the form element.
         this.element.id = `${this.type}-projects`;
 
-        projectState.addListener((projects: any[]) => { // Reach out to projectState and call addListener on it to register a listener function. listeners in the end is just a list of functions which we'll eventually call when something changes.
+        projectState.addListener((projects: Project[]) => { // Reach out to projectState and call addListener on it to register a listener function. listeners in the end is just a list of functions which we'll eventually call when something changes.
             this.assignedProjects = projects; // Once something changes, override the assignedProjects with the new projects because something changed in the state.
             this.renderProjects();
         });
