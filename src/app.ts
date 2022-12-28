@@ -1,20 +1,27 @@
 // Project Type
 enum ProjectStatus { Active, Finished } // Using enum here becuase we have exactly 2 options and we only need identifiers instead of strings
 
-class Project { // Using a class to creat the Project type here instead of an interface or a custom type because we want to be able to instantiate it.
+class Project { // Using a class to create the Project type here instead of an interface or a custom type because we want to be able to instantiate it.
     constructor(public id: string, public title: string, public description: string, public people: number, public status: ProjectStatus) { }
 }
 
 // Project State Management Class: Takes care of the state of the application, set up listeners in the different parts of the app that might be interested.
 
-type Listener = (items: Project[]) => void // Using a type here because we want to encode a function type with one word. Listener is just a bunch of functions and we execute that when anything changes. Since it's a function we have to declare a return type which is void.
-class ProjectState {
-    private listeners: Listener[] = []; // Set up a subscription pattern that manages a list of listeners(functions) inside of the project state. Functions called whenever something changes
+type Listener<T> = (items: T[]) => void // Using a type here because we want to encode a function type with one word. Listener is just a bunch of functions and we execute that when anything changes. Since it's a function we have to declare a return type which is void.
+
+class State<T> {
+    protected listeners: Listener<T>[] = []; // Set up a subscription pattern that manages a list of listeners(functions) inside of the project state. Functions called whenever something changes
+
+    addListener(listenerFn: Listener<T>) {
+        this.listeners.push(listenerFn);
+    }
+}
+class ProjectState extends State<Project> {
     private projects: Project[] = [];
     private static instance: ProjectState;
 
     private constructor() { // Creating a private constructor here guarantees that this is a singleton class.
-
+        super();
     }
 
     static getInstance() { // Creating a new instance of ProjectState
@@ -23,10 +30,6 @@ class ProjectState {
         }
         this.instance = new ProjectState();
         return this.instance;
-    }
-
-    addListener(listenerFn: Listener) {
-        this.listeners.push(listenerFn);
     }
 
     addProject(title: string, description: string, numberOfPeople: number) {
@@ -84,22 +87,49 @@ function autobind(_: any, _2: string, descriptor: PropertyDescriptor) {
     return adjustedDescriptor;
 }
 
-// ProjectList Class
-class ProjectList {
+
+// Component Base Class => A class that manages all the shared functionalities which the classes that renders things to the DOM have in common.
+abstract class Component<T extends HTMLElement, U extends HTMLElement> { // Think of this as UI components that we render to the screen. Abstract class because it should never be directly instantiated, instead, it should always be used for inheritance.
+    // We can use a Generic class here so we can set the concrete types when we inherit from it.
     templateElement: HTMLTemplateElement;
-    hostElement: HTMLDivElement;
-    element: HTMLElement;
+    hostElement: T;
+    element: U;
+
+    constructor(templateId: string, hostElementId: string, insertAtStart: boolean, newElementId?: string) { // We need to know the ID of the template so we can know how to select it. We need to know the hostElementID so we can know where to render this component. We need to know the newElementId so that we get an ID that has to be assigned to the newly rendered element.
+        this.templateElement = document.getElementById(templateId)! as HTMLTemplateElement;
+        this.hostElement = document.getElementById(hostElementId)! as T;
+
+        const importedNode = document.importNode(this.templateElement.content, true); // With this, we import the template element into the DOM. The second argument defines whether we should import this with a deep clone or not.
+        this.element = importedNode.firstElementChild as U; // Getting access to the form element.
+        if (newElementId) {
+            this.element.id = newElementId;
+        }
+
+        this.attach(insertAtStart);
+    }
+
+    private attach(insertAtStart: boolean) {
+        this.hostElement.insertAdjacentElement(insertAtStart ? 'afterbegin' : 'beforeend', this.element);
+    }
+
+    // Added as ABSTRACT methods which means the complete implementation is mising here, but we now force any class inheriting from this Component class to have these two methods available to them.
+    abstract configure(): void;
+    abstract renderContent(): void;
+}
+
+// ProjectList Class
+class ProjectList extends Component<HTMLDivElement, HTMLElement> {
     assignedProjects: Project[];
 
     constructor(private type: 'active' | 'finished') {
-        this.templateElement = document.getElementById('project-list')! as HTMLTemplateElement;
-        this.hostElement = document.getElementById('app')! as HTMLDivElement;
+        super('project-list', 'app', false, `${type}-projects`);
         this.assignedProjects = [];
 
-        const importedNode = document.importNode(this.templateElement.content, true); // With this, we import the template element into the DOM. The second argument defines whether we should import this with a deep clone or not.
-        this.element = importedNode.firstElementChild as HTMLElement; // Getting access to the form element.
-        this.element.id = `${this.type}-projects`;
+        this.configure();
+        this.renderContent();
+    }
 
+    configure() {
         projectState.addListener((projects: Project[]) => { // Reach out to projectState and call addListener on it to register a listener function. listeners in the end is just a list of functions which we'll eventually call when something changes.
             // Before we store the projects and render them we wanna filter them, to know which ones are active and finished respectively
             const relevantProjects = projects.filter(project => {
@@ -112,9 +142,12 @@ class ProjectList {
             this.assignedProjects = relevantProjects; // Once something changes, override the assignedProjects with the new projects because something changed in the state.
             this.renderProjects();
         });
+    }
 
-        this.attach();
-        this.renderContent();
+    renderContent() {
+        const listId = `${this.type}-projects-list`;
+        this.element.querySelector('ul')!.id = listId;
+        this.element.querySelector('h2')!.textContent = this.type.toUpperCase() + ' PROJECTS';
     }
 
     private renderProjects() {
@@ -126,35 +159,18 @@ class ProjectList {
             listElement.appendChild(listItem);
         }
     }
-
-    private renderContent() {
-        const listId = `${this.type}-projects-list`;
-        this.element.querySelector('ul')!.id = listId;
-        this.element.querySelector('h2')!.textContent = this.type.toUpperCase() + ' PROJECTS';
-    }
-
-    private attach() {
-        this.hostElement.insertAdjacentElement('beforeend', this.element);
-    }
 }
 
 
 // ProjectInput Class
-class ProjectInput {
-    templateElement: HTMLTemplateElement;
-    hostElement: HTMLDivElement;
-    element: HTMLFormElement;
+class ProjectInput extends Component<HTMLDivElement, HTMLFormElement> {
     titleInputElement: HTMLInputElement;
     descriptionInputElement: HTMLInputElement;
     peopleInputElement: HTMLInputElement;
 
     constructor() {
-        this.templateElement = document.getElementById('project-input')! as HTMLTemplateElement;
-        this.hostElement = document.getElementById('app')! as HTMLDivElement;
-
-        const importedNode = document.importNode(this.templateElement.content, true); // With this, we import the template element into the DOM. The second argument defines whether we should import this with a deep clone or not.
-        this.element = importedNode.firstElementChild as HTMLFormElement; // Getting access to the form element.
-        this.element.id = 'user-input';
+        // Here we import the templateElement into the DOM.
+        super('project-input', 'app', true, 'user-input');
 
         // Getting Access to all the input fields of the form, selecting them with the id attribute.
         this.titleInputElement = this.element.querySelector('#title') as HTMLInputElement;
@@ -162,8 +178,13 @@ class ProjectInput {
         this.peopleInputElement = this.element.querySelector('#people') as HTMLInputElement;
 
         this.configure();
-        this.attach();
     }
+
+    configure() {
+        this.element.addEventListener('submit', this.submitHandler);
+    }
+
+    renderContent() { }
 
     private gatherUserInput(): [string, string, number] | void {
         const enteredTitle = this.titleInputElement.value;
@@ -212,14 +233,6 @@ class ProjectInput {
             projectState.addProject(title, description, people);
             this.clearInputs();
         }
-    }
-
-    private configure() {
-        this.element.addEventListener('submit', this.submitHandler);
-    }
-
-    private attach() {
-        this.hostElement.insertAdjacentElement('afterbegin', this.element); // Insert right at the beginning of the opening tag
     }
 }
 
