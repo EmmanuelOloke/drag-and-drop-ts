@@ -1,5 +1,5 @@
 // Component Base Class => A class that manages all the shared functionalities which the classes that renders things to the DOM have in common.
-export abstract class Component<T extends HTMLElement, U extends HTMLElement> { // Think of this as UI components that we render to the screen. Abstract class because it should never be directly instantiated, instead, it should always be used for inheritance.
+export default abstract class Component<T extends HTMLElement, U extends HTMLElement> { // Think of this as UI components that we render to the screen. Abstract class because it should never be directly instantiated, instead, it should always be used for inheritance.
     // We can use a Generic class here so we can set the concrete types when we inherit from it.
     templateElement: HTMLTemplateElement;
     hostElement: T;
