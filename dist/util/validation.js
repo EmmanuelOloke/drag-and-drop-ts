@@ -1,14 +1,4 @@
-// Validation
-export interface Validatable {
-    value: string | number;
-    required?: boolean; // ? in front of the properties denotes that these vales should all be optional
-    minLength?: number;
-    maxLength?: number;
-    min?: number;
-    max?: number;
-}
-
-export const validate = (validatableInput: Validatable) => {
+export const validate = (validatableInput) => {
     let isValid = true;
     if (validatableInput.required) {
         isValid = isValid && validatableInput.value.toString().trim().length !== 0;
@@ -26,4 +16,5 @@ export const validate = (validatableInput: Validatable) => {
         isValid = isValid && validatableInput.value <= validatableInput.max;
     }
     return isValid;
-}
+};
+//# sourceMappingURL=validation.js.map
