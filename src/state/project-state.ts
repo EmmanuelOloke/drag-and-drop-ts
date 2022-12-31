@@ -1,4 +1,4 @@
-import { Project, ProjectStatus } from "../models/project.js";
+import { Project, ProjectStatus } from "../models/project";
 
 // Project State Management Class: Takes care of the state of the application, set up listeners in the different parts of the app that might be interested.
 
